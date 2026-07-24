@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { ErrorCode, linkWalletSchema, ok, walletNonceRequestSchema } from '@declawd/shared';
 import { ApiError } from '../../plugins/error-handler';
-import { deleteWallet, linkWallet, listWallets, requestWalletLinkNonce, WalletVerificationError } from './service';
+import { deleteWallet, linkWallet, listWallets, requestWalletLinkNonce, toWalletDto, WalletVerificationError } from './service';
 
 const walletRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', fastify.authenticate);
@@ -30,7 +30,7 @@ const walletRoutes: FastifyPluginAsync = async (fastify) => {
         metadata: { address: wallet.address, chainId: wallet.chainId },
         request,
       });
-      reply.send(ok(await listWallets(fastify.prisma, request.user!.id).then((all) => all.find((w) => w.id === wallet.id))));
+      reply.send(ok(toWalletDto(wallet)));
     } catch (err) {
       if (err instanceof WalletVerificationError) {
         throw new ApiError(ErrorCode.WALLET_VERIFICATION_FAILED, err.message);

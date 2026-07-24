@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
-import { ErrorCode, JWT_REFRESH_TOKEN_COOKIE, fail, ok, refreshTokenSchema } from '@declawd/shared';
+import { ErrorCode, JWT_REFRESH_TOKEN_COOKIE, fail, googleAuthCallbackSchema, ok, refreshTokenSchema } from '@declawd/shared';
 import { env } from '../../config/env';
 import { ApiError } from '../../plugins/error-handler';
 import { setAuthCookies, clearAuthCookies } from '../../lib/auth-cookies';
@@ -39,15 +39,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     '/auth/google/callback',
     { config: { rateLimit: AUTH_RATE_LIMIT } },
     async (request, reply) => {
-      const query = request.query as { code?: string; state?: string; error?: string };
+      const rawQuery = request.query as { code?: string; state?: string; error?: string };
 
-      if (query.error) {
-        reply.redirect(`${env.WEB_BASE_URL}/login?error=${encodeURIComponent(query.error)}`);
+      if (rawQuery.error) {
+        reply.redirect(`${env.WEB_BASE_URL}/login?error=${encodeURIComponent(rawQuery.error)}`);
         return;
       }
-      if (!query.code) {
-        throw new ApiError(ErrorCode.VALIDATION_ERROR, 'Missing OAuth authorization code');
-      }
+
+      const query = googleAuthCallbackSchema.parse(rawQuery);
 
       const expectedState = request.cookies[OAUTH_STATE_COOKIE];
       reply.clearCookie(OAUTH_STATE_COOKIE, { path: '/api/v1/auth/google/callback' });

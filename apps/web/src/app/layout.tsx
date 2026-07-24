@@ -13,9 +13,6 @@ export const metadata: Metadata = {
   title: 'DeClawd — Non-Custodial AI BTC Prediction Market Trading',
   description:
     'DeClawd is a non-custodial, AI-powered trading agent for Bitcoin prediction markets on Polymarket. Connect your wallet, enable the AI agent, and let it trade for you — you always keep custody.',
-  icons: {
-    icon: '/favicon.ico',
-  },
 };
 
 export const viewport: Viewport = {
