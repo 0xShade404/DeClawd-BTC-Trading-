@@ -6,14 +6,14 @@ export function Footer() {
     <footer className="border-t border-white/10 px-4 py-10">
       <div className="container flex flex-col items-center gap-4 text-center">
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-bitcoin-500 text-xs font-bold text-black">
+          <span className="chrome flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-white">
             D
           </span>
           <span className="font-semibold tracking-tight">DeClawd</span>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <ShieldCheck className="h-3.5 w-3.5 text-bitcoin-500" />
+          <ShieldCheck className="h-3.5 w-3.5 text-base-500" />
           Non-custodial — you always sign your own transactions.
         </div>
 

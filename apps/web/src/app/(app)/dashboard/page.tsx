@@ -74,7 +74,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-bitcoin-500" />
+            <Target className="h-4 w-4 text-base-500" />
             Open positions
           </CardTitle>
         </CardHeader>

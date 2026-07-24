@@ -20,7 +20,7 @@ export function StatCard({ label, value, icon: Icon, trend = 'neutral', hint, cl
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </span>
-          {Icon && <Icon className="h-4 w-4 text-bitcoin-500" aria-hidden="true" />}
+          {Icon && <Icon className="h-4 w-4 text-base-500" aria-hidden="true" />}
         </div>
         <span
           data-testid="stat-card-value"

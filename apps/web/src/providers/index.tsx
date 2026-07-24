@@ -9,8 +9,8 @@ import { QueryProvider } from './query-provider';
 import { AuthProvider } from './auth-provider';
 
 const rainbowKitTheme = darkTheme({
-  accentColor: '#F7931A',
-  accentColorForeground: '#0a0a0f',
+  accentColor: '#0052FF',
+  accentColorForeground: '#ffffff',
   borderRadius: 'medium',
   overlayBlur: 'small',
 });

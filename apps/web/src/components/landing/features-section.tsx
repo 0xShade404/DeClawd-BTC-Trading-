@@ -55,7 +55,7 @@ export function FeaturesSection() {
             >
               <Card className="h-full glass-hover">
                 <CardHeader className="flex-row items-center gap-3 space-y-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bitcoin-500/15 text-bitcoin-500">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-base-500/15 text-base-500">
                     <feature.icon className="h-5 w-5" />
                   </div>
                   <CardTitle>{feature.title}</CardTitle>

@@ -42,7 +42,7 @@ export function RiskSlider({
         <label htmlFor={id} className="text-sm font-medium">
           {label}
         </label>
-        <span className="text-sm text-bitcoin-500" data-testid="risk-slider-value">
+        <span className="text-sm text-base-500" data-testid="risk-slider-value">
           {formatValue ? formatValue(clamped) : clamped}
         </span>
       </div>

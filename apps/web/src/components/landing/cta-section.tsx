@@ -24,7 +24,7 @@ export function CtaSection() {
           </p>
           <a
             href={googleAuthUrl()}
-            className="relative mt-8 inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-glow-orange transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            className="chrome relative mt-8 inline-flex h-12 items-center gap-2 rounded-lg px-6 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] hover:shadow-glow-blue active:scale-[0.98]"
           >
             Sign in with Google
             <ArrowRight className="h-4 w-4" />

@@ -165,7 +165,7 @@ export function WithdrawForm() {
           </div>
 
           <div className="glass flex items-start gap-3 rounded-lg p-3 text-xs text-muted-foreground">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-bitcoin-500" />
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-base-500" />
             <span>
               You&apos;ll be asked to sign a message with your connected wallet to authorize this
               withdrawal. This is not a blockchain transaction and costs no gas &mdash; it simply

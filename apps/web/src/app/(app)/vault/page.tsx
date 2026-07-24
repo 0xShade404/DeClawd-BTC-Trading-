@@ -39,7 +39,7 @@ export default function VaultPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-bitcoin-500/15 text-bitcoin-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-base-500/15 text-base-500">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
@@ -80,12 +80,12 @@ export default function VaultPage() {
         </CardHeader>
         <CardContent>
           <div className="flex h-3 w-full overflow-hidden rounded-full bg-white/10">
-            <div className="bg-bitcoin-500" style={{ width: `${vaultPct}%` }} />
+            <div className="bg-base-500" style={{ width: `${vaultPct}%` }} />
             <div className="bg-white/30" style={{ width: `${poolPct}%` }} />
           </div>
           <div className="mt-3 flex justify-between text-sm">
             <span className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-bitcoin-500" />
+              <span className="h-2.5 w-2.5 rounded-full bg-base-500" />
               Protected vault &mdash; {vaultPct}%
             </span>
             <span className="flex items-center gap-2">
@@ -130,7 +130,7 @@ export default function VaultPage() {
                         {position.marketQuestion}
                       </TableCell>
                       <TableCell className="text-success">{formatUsd(pnl)}</TableCell>
-                      <TableCell className="text-bitcoin-500">{formatUsd((pnl * vaultPct) / 100)}</TableCell>
+                      <TableCell className="text-base-500">{formatUsd((pnl * vaultPct) / 100)}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{position.settlementStatus ?? 'PENDING'}</Badge>
                       </TableCell>

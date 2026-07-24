@@ -33,7 +33,7 @@ export function Header({ user }: { user: UserDto | null }) {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatarUrl} alt="" className="h-6 w-6 rounded-full" />
             ) : (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-bitcoin-500 text-[10px] font-bold text-black">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-base-500 text-[10px] font-bold text-white">
                 {(user.displayName ?? user.email).charAt(0).toUpperCase()}
               </span>
             )}

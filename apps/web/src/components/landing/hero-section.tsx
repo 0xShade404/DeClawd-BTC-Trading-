@@ -17,7 +17,7 @@ export function HeroSection() {
           transition={{ duration: 0.5 }}
           className="glass mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground"
         >
-          <Zap className="h-3.5 w-3.5 text-bitcoin-500" />
+          <Zap className="h-3.5 w-3.5 text-base-500" />
           AI-powered BTC prediction market trading on Polymarket
         </motion.div>
 
@@ -28,7 +28,7 @@ export function HeroSection() {
           className="text-balance max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl"
         >
           Let AI trade Bitcoin prediction markets.{' '}
-          <span className="bg-gradient-to-r from-bitcoin-400 to-bitcoin-600 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-base-400 to-base-600 bg-clip-text text-transparent">
             You keep the keys.
           </span>
         </motion.h1>
@@ -52,14 +52,14 @@ export function HeroSection() {
         >
           <a
             href={googleAuthUrl()}
-            className="inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-glow-orange transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            className="chrome inline-flex h-12 items-center gap-2 rounded-lg px-6 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] hover:shadow-glow-blue active:scale-[0.98]"
           >
             <GoogleIcon className="h-4 w-4" />
             Sign in with Google
             <ArrowRight className="h-4 w-4" />
           </a>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-bitcoin-500" />
+            <ShieldCheck className="h-4 w-4 text-base-500" />
             Non-custodial — you always sign your own transactions
           </div>
         </motion.div>

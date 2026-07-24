@@ -40,7 +40,7 @@ export default function HelpPage() {
 
       <Card>
         <CardContent className="flex items-start gap-3 p-5 text-sm text-muted-foreground">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-bitcoin-500" />
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-base-500" />
           <span>
             DeClawd is non-custodial: it can never move your funds without a signature from your
             own wallet. If anything ever asks you for a seed phrase or private key, it is not

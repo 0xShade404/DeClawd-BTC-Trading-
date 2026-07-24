@@ -1,11 +1,14 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * DeClawd design tokens: dark, minimal, glassmorphism fintech aesthetic with
- * a Bitcoin-orange accent used sparingly. Colors are expressed as HSL CSS
- * variables (defined in src/app/globals.css) following shadcn/ui conventions
- * so the hand-rolled primitives in src/components/ui are a drop-in
- * replacement for real shadcn/ui components later.
+ * DeClawd design tokens: dark, minimal, sleek business aesthetic in the
+ * spirit of the Base ecosystem (base.org / Base app) - Base Blue (#0052FF)
+ * as the sole accent, crisp glass surfaces with a subtle chrome sheen
+ * (see `.chrome` in globals.css) rather than a warm/glowy treatment.
+ * Colors are expressed as HSL CSS variables (defined in src/app/globals.css)
+ * following shadcn/ui conventions so the hand-rolled primitives in
+ * src/components/ui are a drop-in replacement for real shadcn/ui components
+ * later.
  */
 const config: Config = {
   darkMode: 'class',
@@ -60,19 +63,20 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Literal Bitcoin-orange scale for cases that need a raw color
-        // value (glows, gradients) rather than the semantic `primary` token.
-        bitcoin: {
-          50: '#fef6e9',
-          100: '#fdead0',
-          200: '#fbd39d',
-          300: '#f9ba69',
-          400: '#f8a740',
-          500: '#F7931A',
-          600: '#dc7f0e',
-          700: '#b6660d',
-          800: '#8f5010',
-          900: '#743f10',
+        // Literal Base-blue scale for cases that need a raw color value
+        // (glows, gradients) rather than the semantic `primary` token.
+        // 500 is Base's brand blue (#0052FF).
+        base: {
+          50: '#eef3ff',
+          100: '#dce7ff',
+          200: '#b9cfff',
+          300: '#8fb3ff',
+          400: '#4d80ff',
+          500: '#0052FF',
+          600: '#0044d6',
+          700: '#0036ac',
+          800: '#002a85',
+          900: '#001f63',
         },
       },
       borderRadius: {
@@ -82,11 +86,15 @@ const config: Config = {
         xl: 'calc(var(--radius) + 4px)',
       },
       backgroundImage: {
-        'glow-radial': 'radial-gradient(circle at 50% 0%, rgba(247,147,26,0.15), transparent 60%)',
+        'glow-radial': 'radial-gradient(circle at 50% 0%, rgba(0,82,255,0.16), transparent 60%)',
+        // Subtle top-down glossy highlight used by `.chrome` surfaces
+        // (primary buttons, the brand mark) for a slightly metallic finish.
+        chrome: 'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 45%)',
       },
       boxShadow: {
         glass: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-        'glow-orange': '0 0 24px 0 rgba(247,147,26,0.35)',
+        'glow-blue': '0 0 24px 0 rgba(0,82,255,0.45)',
+        chrome: 'inset 0 1px 0 0 rgba(255,255,255,0.25), inset 0 -1px 0 0 rgba(0,0,0,0.15)',
       },
       backdropBlur: {
         glass: '16px',

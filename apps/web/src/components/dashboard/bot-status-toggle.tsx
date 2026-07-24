@@ -28,7 +28,7 @@ export function BotStatusToggle() {
     <Card>
       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-bitcoin-500/15 text-bitcoin-500">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-base-500/15 text-base-500">
             <Bot className="h-5 w-5" />
           </div>
           <div>

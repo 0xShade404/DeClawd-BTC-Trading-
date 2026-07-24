@@ -53,7 +53,7 @@ export function HowItWorksSection() {
             >
               <Card className="h-full glass-hover">
                 <CardHeader>
-                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-bitcoin-500/15 text-bitcoin-500">
+                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-base-500/15 text-base-500">
                     <step.icon className="h-5 w-5" />
                   </div>
                   <CardTitle>

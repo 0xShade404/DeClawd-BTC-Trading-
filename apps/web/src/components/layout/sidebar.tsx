@@ -13,7 +13,7 @@ export function Sidebar({ role }: { role: UserRole | undefined }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-white/10 bg-black/20 p-4 backdrop-blur-glass md:flex">
       <Link href="/dashboard" className="mb-8 flex items-center gap-2 px-2 pt-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-bitcoin-500 text-sm font-bold text-black">
+        <span className="chrome flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white">
           D
         </span>
         <span className="text-lg font-semibold tracking-tight">DeClawd</span>

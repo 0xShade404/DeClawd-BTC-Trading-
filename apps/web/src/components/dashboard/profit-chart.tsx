@@ -9,7 +9,7 @@ export interface ProfitChartPoint {
 
 /**
  * Recharts area chart of cumulative/period PnL. Kept dependency-light and
- * themed to match the glass/orange design language.
+ * themed to match the glass/Base-blue design language.
  */
 export function ProfitChart({ data }: { data: ProfitChartPoint[] }) {
   if (data.length === 0) {
@@ -26,8 +26,8 @@ export function ProfitChart({ data }: { data: ProfitChartPoint[] }) {
         <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#F7931A" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="#F7931A" stopOpacity={0} />
+              <stop offset="0%" stopColor="#0052FF" stopOpacity={0.4} />
+              <stop offset="100%" stopColor="#0052FF" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -58,7 +58,7 @@ export function ProfitChart({ data }: { data: ProfitChartPoint[] }) {
           <Area
             type="monotone"
             dataKey="pnlUsd"
-            stroke="#F7931A"
+            stroke="#0052FF"
             strokeWidth={2}
             fill="url(#pnlGradient)"
           />
