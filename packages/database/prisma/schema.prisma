@@ -1,0 +1,545 @@
+// DeClawd database schema
+// PostgreSQL via Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================================================================
+// Enums
+// ==============================================================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum WalletProvider {
+  METAMASK
+  COINBASE_WALLET
+  WALLET_CONNECT
+  RABBY
+  RAINBOW
+}
+
+enum LedgerAccountType {
+  TRADING_POOL
+  PROTECTED_VAULT
+}
+
+enum LedgerEntryType {
+  DEPOSIT
+  WITHDRAWAL
+  TRADE_DEBIT
+  TRADE_CREDIT
+  PROFIT_ALLOCATION
+  LOSS_ABSORPTION
+  FEE
+  ADJUSTMENT
+}
+
+enum MarketStatus {
+  OPEN
+  CLOSED
+  RESOLVED
+  INVALID
+}
+
+enum TradeDirection {
+  YES
+  NO
+}
+
+enum PositionStatus {
+  PENDING
+  OPEN
+  CLOSING
+  SETTLED
+  CANCELLED
+  FAILED
+}
+
+enum SettlementStatus {
+  PENDING
+  WON
+  LOST
+  PUSHED
+  DISPUTED
+}
+
+enum TradingScheduleMode {
+  ALWAYS_ON
+  MARKET_HOURS
+  CUSTOM
+}
+
+enum AiAggressiveness {
+  CONSERVATIVE
+  BALANCED
+  AGGRESSIVE
+}
+
+enum NotificationChannel {
+  EMAIL
+  TELEGRAM
+  DISCORD
+  BROWSER_PUSH
+}
+
+enum NotificationEvent {
+  TRADE_OPENED
+  TRADE_CLOSED
+  LARGE_PROFIT
+  LARGE_LOSS
+  BOT_STOPPED
+  BOT_STARTED
+  ERROR
+  WITHDRAWAL_COMPLETED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  SIGNED
+  SUBMITTED
+  CONFIRMED
+  FAILED
+}
+
+enum AuditActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum BotRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+// ==============================================================================
+// Identity & Auth
+// ==============================================================================
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  displayName   String?
+  avatarUrl     String?
+  googleSubject String     @unique
+  role          UserRole   @default(USER)
+  status        UserStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLoginAt DateTime?
+
+  wallets            Wallet[]
+  refreshTokens      RefreshToken[]
+  ledgerAccounts     LedgerAccount[]
+  ledgerEntries      LedgerEntry[]
+  positions          Position[]
+  trades             Trade[]
+  settings           UserSettings?
+  notificationPrefs  NotificationPreference[]
+  notificationEvents NotificationLog[]
+  withdrawals        Withdrawal[]
+  auditLogs          AuditLog[]
+  botRuns            BotRun[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Wallet {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address     String
+  chainId     Int            @default(137)
+  provider    WalletProvider
+  isPrimary   Boolean        @default(false)
+  // Signature proving control of the address at link-time (SIWE-style message + signature).
+  verificationMessage String
+  verificationSignature String
+  verifiedAt  DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+
+  @@unique([address, chainId])
+  @@index([userId])
+  @@map("wallets")
+}
+
+// ==============================================================================
+// Ledger (Trading Pool + Protected Vault)
+// ==============================================================================
+
+model LedgerAccount {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      LedgerAccountType
+  // Denormalized cached balance in USDC (6 decimals stored as Decimal). Source of truth
+  // is the sum of LedgerEntry.amount for this account; kept in sync transactionally.
+  balance   Decimal           @default(0) @db.Decimal(28, 6)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  entries LedgerEntry[]
+
+  @@unique([userId, type])
+  @@map("ledger_accounts")
+}
+
+model LedgerEntry {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId       String
+  account         LedgerAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type            LedgerEntryType
+  // Positive = credit, negative = debit. USDC, 6 decimals.
+  amount          Decimal           @db.Decimal(28, 6)
+  balanceAfter    Decimal           @db.Decimal(28, 6)
+  relatedTradeId  String?
+  relatedTrade    Trade?            @relation(fields: [relatedTradeId], references: [id])
+  relatedWithdrawalId String?
+  relatedWithdrawal   Withdrawal?   @relation(fields: [relatedWithdrawalId], references: [id])
+  description     String?
+  createdAt       DateTime          @default(now())
+
+  @@index([userId, createdAt])
+  @@index([accountId])
+  @@map("ledger_entries")
+}
+
+// ==============================================================================
+// Markets
+// ==============================================================================
+
+model Market {
+  id                String       @id @default(cuid())
+  // Provider-scoped identifiers so additional prediction-market venues can be added later.
+  provider          String       @default("polymarket")
+  providerMarketId  String
+  conditionId       String?
+  slug              String?
+  question          String
+  category          String       @default("BTC")
+  status            MarketStatus @default(OPEN)
+  outcomePrices     Json?
+  liquidityUsd      Decimal?     @db.Decimal(28, 6)
+  volume24hUsd      Decimal?     @db.Decimal(28, 6)
+  spreadBps         Int?
+  feeBps            Int?
+  opensAt           DateTime?
+  closesAt          DateTime?
+  resolvesAt        DateTime?
+  resolvedOutcome   String?
+  raw               Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  positions   Position[]
+  aiSignals   AiSignal[]
+  scanResults MarketScanResult[]
+
+  @@unique([provider, providerMarketId])
+  @@index([status, category])
+  @@map("markets")
+}
+
+model MarketScanResult {
+  id             String   @id @default(cuid())
+  botRunId       String
+  botRun         BotRun   @relation(fields: [botRunId], references: [id], onDelete: Cascade)
+  marketId       String
+  market         Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  eligible       Boolean
+  rejectionReason String?
+  createdAt      DateTime @default(now())
+
+  @@index([botRunId])
+  @@map("market_scan_results")
+}
+
+// ==============================================================================
+// AI Signals
+// ==============================================================================
+
+model AiSignal {
+  id               String   @id @default(cuid())
+  marketId         String
+  market           Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  modelName        String
+  modelVersion     String
+  confidenceScore  Decimal  @db.Decimal(5, 4)
+  expectedValue    Decimal  @db.Decimal(10, 6)
+  suggestedDirection TradeDirection?
+  riskScore        Decimal  @db.Decimal(5, 4)
+  suggestedSizeUsd Decimal? @db.Decimal(28, 6)
+  reasoning        String
+  features         Json
+  createdAt        DateTime @default(now())
+
+  positions Position[]
+
+  @@index([marketId, createdAt])
+  @@map("ai_signals")
+}
+
+// ==============================================================================
+// Positions & Trades
+// ==============================================================================
+
+model Position {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketId         String
+  market           Market          @relation(fields: [marketId], references: [id])
+  aiSignalId       String?
+  aiSignal         AiSignal?       @relation(fields: [aiSignalId], references: [id])
+  botRunId         String?
+  botRun           BotRun?         @relation(fields: [botRunId], references: [id])
+
+  direction        TradeDirection
+  status           PositionStatus  @default(PENDING)
+  entryPrice       Decimal         @db.Decimal(10, 6)
+  sizeUsd          Decimal         @db.Decimal(28, 6)
+  sharesAcquired   Decimal?        @db.Decimal(28, 6)
+  exitPrice        Decimal?        @db.Decimal(10, 6)
+  feesUsd          Decimal         @default(0) @db.Decimal(28, 6)
+  realizedPnlUsd   Decimal?        @db.Decimal(28, 6)
+  confidenceScore  Decimal?        @db.Decimal(5, 4)
+  reasoning        String?
+
+  settlement       Settlement?
+  trades           Trade[]
+
+  openedAt         DateTime        @default(now())
+  closedAt         DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([userId, status])
+  @@index([marketId])
+  @@map("positions")
+}
+
+model Trade {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId      String
+  position        Position       @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  direction       TradeDirection
+  side            String         // "OPEN" | "CLOSE"
+  price           Decimal        @db.Decimal(10, 6)
+  sizeUsd         Decimal        @db.Decimal(28, 6)
+  feesUsd         Decimal        @default(0) @db.Decimal(28, 6)
+  pnlUsd          Decimal?       @db.Decimal(28, 6)
+
+  // Non-custodial execution trail: the signed order/tx originates from the user's wallet.
+  txHash          String?
+  orderId         String?
+  signerAddress   String
+  confidenceScore Decimal?       @db.Decimal(5, 4)
+  reasoning       String?
+
+  executedAt      DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId, executedAt])
+  @@index([positionId])
+  @@map("trades")
+}
+
+model Settlement {
+  id               String            @id @default(cuid())
+  positionId       String            @unique
+  position         Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  status           SettlementStatus  @default(PENDING)
+  resolvedOutcome  String?
+  payoutUsd        Decimal?          @db.Decimal(28, 6)
+  settledAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("settlements")
+}
+
+// ==============================================================================
+// Bot Runs (trading cycle audit trail)
+// ==============================================================================
+
+model BotRun {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        BotRunStatus @default(RUNNING)
+  marketsScanned Int         @default(0)
+  marketsEligible Int        @default(0)
+  tradesOpened  Int          @default(0)
+  errorMessage  String?
+  startedAt     DateTime     @default(now())
+  finishedAt    DateTime?
+
+  scanResults MarketScanResult[]
+  positions   Position[]
+
+  @@index([userId, startedAt])
+  @@map("bot_runs")
+}
+
+// ==============================================================================
+// Settings
+// ==============================================================================
+
+model UserSettings {
+  id                   String               @id @default(cuid())
+  userId               String               @unique
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  botEnabled           Boolean              @default(false)
+  riskPct              Decimal              @default(2) @db.Decimal(5, 2)
+  maxDailyLossUsd      Decimal              @default(50) @db.Decimal(28, 6)
+  maxTradeSizeUsd      Decimal              @default(25) @db.Decimal(28, 6)
+  aiAggressiveness     AiAggressiveness     @default(BALANCED)
+  autoCompound         Boolean              @default(true)
+  tradingScheduleMode  TradingScheduleMode  @default(ALWAYS_ON)
+  tradingScheduleCron  String?
+  vaultAllocationPct   Decimal              @default(70) @db.Decimal(5, 2)
+  tradingPoolAllocationPct Decimal          @default(30) @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+model NotificationPreference {
+  id       String              @id @default(cuid())
+  userId   String
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel  NotificationChannel
+  event    NotificationEvent
+  enabled  Boolean             @default(true)
+  target   String?             // email address, telegram chat id, discord webhook, push endpoint
+
+  @@unique([userId, channel, event])
+  @@map("notification_preferences")
+}
+
+model NotificationLog {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  event     NotificationEvent
+  payload   Json
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notification_logs")
+}
+
+// ==============================================================================
+// Withdrawals
+// ==============================================================================
+
+model Withdrawal {
+  id            String            @id @default(cuid())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceAccount LedgerAccountType
+  amountUsd     Decimal           @db.Decimal(28, 6)
+  destinationAddress String
+  status        WithdrawalStatus  @default(PENDING)
+  txHash        String?
+  errorMessage  String?
+  requestedAt   DateTime          @default(now())
+  confirmedAt   DateTime?
+
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId, requestedAt])
+  @@map("withdrawals")
+}
+
+// ==============================================================================
+// Audit Log
+// ==============================================================================
+
+model AuditLog {
+  id         String         @id @default(cuid())
+  actorType  AuditActorType
+  actorId    String?
+  userId     String?
+  user       User?          @relation(fields: [userId], references: [id])
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime       @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ==============================================================================
+// Platform metrics snapshot (for admin dashboard)
+// ==============================================================================
+
+model PlatformMetricSnapshot {
+  id                String   @id @default(cuid())
+  capturedAt        DateTime @default(now())
+  totalUsers        Int
+  activeBots        Int
+  totalVolumeUsd    Decimal  @db.Decimal(28, 6)
+  totalVaultUsd     Decimal  @db.Decimal(28, 6)
+  totalTradingPoolUsd Decimal @db.Decimal(28, 6)
+  openPositions     Int
+  closedPositions   Int
+  revenueUsd        Decimal  @db.Decimal(28, 6)
+
+  @@index([capturedAt])
+  @@map("platform_metric_snapshots")
+}
