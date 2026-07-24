@@ -2,9 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@declawd/shared'],
-  // Required by apps/web/Dockerfile's runner stage, which copies
-  // .next/standalone and runs `node apps/web/server.js`.
-  output: 'standalone',
+  // 'standalone' output is required by apps/web/Dockerfile's runner stage
+  // (which copies .next/standalone and runs `node apps/web/server.js`) for
+  // self-hosted/Docker deployment. Vercel's build pipeline packages
+  // serverless functions itself and doesn't use .next/standalone - it sets
+  // the VERCEL env var during every build, so this is skipped there rather
+  // than left on, which can leave static assets out of Vercel's function
+  // trace and break asset serving.
+  output: process.env.VERCEL ? undefined : 'standalone',
   experimental: {
     typedRoutes: false,
   },

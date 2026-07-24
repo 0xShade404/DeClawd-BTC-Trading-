@@ -66,6 +66,11 @@
 
   html {
     color-scheme: dark;
+    /* Belt-and-suspenders against any single element (a wide table, a long
+       unbroken string) forcing horizontal scroll on narrow viewports -
+       scrollable content should opt in via .scrollbar-thin/overflow-x-auto
+       (see the Table primitive) rather than the whole page shifting. */
+    overflow-x: hidden;
   }
 
   body {
@@ -73,7 +78,10 @@
     background-image:
       radial-gradient(circle at 15% 0%, rgba(247, 147, 26, 0.08), transparent 40%),
       radial-gradient(circle at 85% 20%, rgba(247, 147, 26, 0.05), transparent 35%);
-    background-attachment: fixed;
+    /* Fixed backgrounds are expensive to repaint on iOS Safari during
+       scroll/keyboard-open; scroll is fine for a subtle radial glow. */
+    background-attachment: scroll;
+    overflow-x: hidden;
   }
 }
 

@@ -88,7 +88,51 @@ openssl rand -base64 32   # COOKIE_SECRET
 npx web-push generate-vapid-keys   # VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY, if using browser push
 ```
 
-## 3. Environment variables
+## 3. Deploying the frontend to Vercel
+
+`apps/web` is Vercel-compatible out of the box — it only depends on
+`@declawd/shared` (consumed as TypeScript source via `transpilePackages`,
+so no workspace build step is required before `next build` runs) and talks
+to the API purely over HTTP via `NEXT_PUBLIC_API_BASE_URL`.
+
+> **`apps/api` cannot be deployed to Vercel.** It's a long-running Fastify
+> process with an in-process `node-cron` scheduler (the 15-minute trading
+> cycle) and a persistent Redis connection — none of which fit Vercel's
+> stateless serverless-function model. Deploy the API with `docker compose`
+> (above) or another host that runs a persistent container (Fly.io,
+> Railway, Render, a VM). Only the Next.js frontend goes on Vercel.
+
+Steps:
+
+1. In the Vercel dashboard, **Import Project** from this repo.
+2. Under **Project Settings → General → Root Directory**, set it to
+   `apps/web`. Vercel detects the root `package.json`'s npm workspaces
+   automatically and installs the whole monorepo's dependencies from the
+   repo root — no custom install command needed.
+3. Framework Preset should auto-detect as **Next.js** (also pinned
+   explicitly in `apps/web/vercel.json`).
+4. Add these **Environment Variables** in the Vercel project (Production
+   and Preview):
+   - `NEXT_PUBLIC_API_BASE_URL` — the public URL of your deployed `apps/api`
+     (e.g. `https://api.your-domain.com`)
+   - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+   - `NEXT_PUBLIC_APP_ENV` — e.g. `production`
+5. On the API side, add your Vercel deployment's origin(s) (the production
+   domain and any `*.vercel.app` preview URLs you want to allow) to
+   `CORS_ORIGINS`, and set `WEB_BASE_URL` to the production frontend URL
+   (used to build the post-OAuth-login redirect).
+6. Deploy. `apps/web/next.config.mjs` skips the Docker-only
+   `output: 'standalone'` build mode automatically when Vercel's `VERCEL`
+   build-time env var is set, so no config changes are needed between the
+   two deployment targets.
+
+Cookies set by the API (`declawd_access_token` / `declawd_refresh_token`)
+are `httpOnly` and scoped to the API's own domain, so cross-origin
+auth between a Vercel-hosted frontend and an API hosted elsewhere works
+as long as `CORS_ORIGINS` is correct and both domains are served over
+HTTPS in production (required for `SameSite`/`Secure` cookies).
+
+## 4. Environment variables
 
 Pulled from `.env.example`. "Required" means the app will not function
 correctly (or a specific feature is silently disabled) without it.
@@ -126,7 +170,7 @@ correctly (or a specific feature is silently disabled) without it.
 | `NEXT_PUBLIC_API_BASE_URL` | Yes | Public, used by the browser to reach the API |
 | `NEXT_PUBLIC_APP_ENV` | No | Cosmetic/env-labeling only |
 
-## 4. Tests
+## 5. Tests
 
 ```bash
 npm run test              # runs each workspace's test suite (vitest)
@@ -139,7 +183,7 @@ npm run typecheck
 suite requires `npm run prisma:generate` to have been run at least once so
 `@declawd/database`'s generated client exists.
 
-## 5. Prisma Studio
+## 6. Prisma Studio
 
 ```bash
 npm run prisma:studio
@@ -149,7 +193,7 @@ Opens a local GUI against whatever `DATABASE_URL` currently points to —
 useful for inspecting `LedgerAccount`/`LedgerEntry` balances, `BotRun`
 history, or seeded `Market` data during development.
 
-## 6. What needs real credentials before this is trade-ready
+## 7. What needs real credentials before this is trade-ready
 
 DeClawd is shipped with all of the following as a genuine, intentional
 integration gap — not an oversight. The application runs, users can log

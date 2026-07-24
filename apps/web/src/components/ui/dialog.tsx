@@ -33,7 +33,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
-      <div role="dialog" aria-modal="true" className="relative z-10 w-full max-w-lg">
+      <div role="dialog" aria-modal="true" className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto">
         {children}
       </div>
     </div>
