@@ -86,6 +86,9 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdToke
   if (Number(payload.exp) * 1000 < Date.now()) {
     throw new Error('Google id_token expired');
   }
+  if (payload.email_verified !== true && payload.email_verified !== 'true') {
+    throw new Error('Google account email is not verified');
+  }
   return payload;
 }
 
