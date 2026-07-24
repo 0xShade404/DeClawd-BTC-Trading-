@@ -1,0 +1,44 @@
+name: Docker Build
+
+# Build-only sanity check for both production Dockerfiles. Does not push
+# to any registry - it just proves `docker build` succeeds from a clean
+# checkout, catching monorepo COPY/workspace issues early.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  docker-build:
+    name: Build ${{ matrix.image }} image
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            dockerfile: apps/api/Dockerfile
+          - image: web
+            dockerfile: apps/web/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.image }} image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: declawd-${{ matrix.image }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
+            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+            NEXT_PUBLIC_APP_ENV=production

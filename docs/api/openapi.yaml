@@ -1,0 +1,1237 @@
+openapi: 3.0.3
+info:
+  title: DeClawd API
+  description: >
+    REST API for DeClawd, a non-custodial, AI-powered BTC prediction-market
+    trading platform on Polymarket. All authenticated endpoints use an
+    httpOnly JWT cookie set during the Google OAuth flow. DeClawd never
+    holds private keys or seed phrases - wallet-authorizing endpoints only
+    ever verify a signature produced by the user's own wallet.
+  version: '1.0'
+  contact:
+    name: DeClawd
+servers:
+  - url: http://localhost:4000
+    description: Local development
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Wallet
+  - name: Dashboard
+  - name: Markets
+  - name: Positions
+  - name: Trades
+  - name: Ledger
+  - name: Withdrawals
+  - name: Settings
+  - name: Bot
+  - name: Admin
+
+security:
+  - cookieAuth: []
+
+paths:
+  # --------------------------------------------------------------------
+  # Health (unversioned)
+  # --------------------------------------------------------------------
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness/readiness probe
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  uptime:
+                    type: number
+                    example: 12345.6
+
+  # --------------------------------------------------------------------
+  # Auth
+  # --------------------------------------------------------------------
+  /api/v1/auth/google:
+    get:
+      tags: [Auth]
+      summary: Begin Google OAuth login
+      security: []
+      description: Redirects the browser to Google's OAuth consent screen.
+      responses:
+        '302':
+          description: Redirect to Google
+
+  /api/v1/auth/google/callback:
+    get:
+      tags: [Auth]
+      summary: Google OAuth callback
+      security: []
+      description: >
+        Exchanges the OAuth code for a Google identity, creates/looks up the
+        User, issues access + refresh JWTs as httpOnly cookies, and redirects
+        to the web app.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to WEB_BASE_URL with session cookies set
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate access token using refresh cookie
+      security: []
+      responses:
+        '200':
+          description: New access token cookie issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessEmpty'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out and clear session cookies
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessEmpty'
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current authenticated user
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Wallet
+  # --------------------------------------------------------------------
+  /api/v1/wallet/nonce:
+    post:
+      tags: [Wallet]
+      summary: Request a SIWE-style nonce/message to sign for wallet linking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address, chainId]
+              properties:
+                address:
+                  type: string
+                  example: '0x1234567890abcdef1234567890abcdef12345678'
+                chainId:
+                  type: integer
+                  example: 137
+      responses:
+        '200':
+          description: Message to be signed by the wallet
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          nonce:
+                            type: string
+                          message:
+                            type: string
+                          expiresAt:
+                            type: string
+                            format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/wallet/link:
+    post:
+      tags: [Wallet]
+      summary: Link a wallet after verifying its signature over the nonce message
+      description: >
+        Never trusts a wallet address without a verified signature. The
+        server independently recovers the signer from `signature` and
+        `message` and rejects the request on any mismatch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address, chainId, provider, message, signature]
+              properties:
+                address:
+                  type: string
+                chainId:
+                  type: integer
+                provider:
+                  type: string
+                  enum: [METAMASK, COINBASE_WALLET, WALLET_CONNECT, RABBY, RAINBOW]
+                message:
+                  type: string
+                signature:
+                  type: string
+                isPrimary:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Wallet linked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WalletDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Signature verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/wallet:
+    get:
+      tags: [Wallet]
+      summary: List wallets linked to the current user
+      responses:
+        '200':
+          description: Linked wallets
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WalletDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/wallet/{id}:
+    delete:
+      tags: [Wallet]
+      summary: Unlink a wallet
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Wallet unlinked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessEmpty'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # --------------------------------------------------------------------
+  # Dashboard
+  # --------------------------------------------------------------------
+  /api/v1/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Aggregate dashboard metrics for the current user
+      responses:
+        '200':
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DashboardSummaryDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Markets
+  # --------------------------------------------------------------------
+  /api/v1/markets:
+    get:
+      tags: [Markets]
+      summary: List BTC prediction markets tracked by the scanner
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, CLOSED, RESOLVED, INVALID]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Markets
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MarketDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/markets/{id}:
+    get:
+      tags: [Markets]
+      summary: Get a single market, including latest AI signal if present
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Market detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MarketDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # --------------------------------------------------------------------
+  # Positions
+  # --------------------------------------------------------------------
+  /api/v1/positions:
+    get:
+      tags: [Positions]
+      summary: List the current user's positions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, OPEN, CLOSING, SETTLED, CANCELLED, FAILED]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Positions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PositionDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Trades
+  # --------------------------------------------------------------------
+  /api/v1/trades:
+    get:
+      tags: [Trades]
+      summary: List the current user's executed trades
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Trades
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TradeDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Ledger
+  # --------------------------------------------------------------------
+  /api/v1/ledger/accounts:
+    get:
+      tags: [Ledger]
+      summary: Get the current user's ledger accounts (Trading Pool + Protected Vault)
+      responses:
+        '200':
+          description: Ledger accounts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LedgerAccountDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Withdrawals
+  # --------------------------------------------------------------------
+  /api/v1/withdrawals:
+    post:
+      tags: [Withdrawals]
+      summary: Request a withdrawal from a ledger account to a wallet address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceAccount, amountUsd, destinationAddress]
+              properties:
+                sourceAccount:
+                  type: string
+                  enum: [TRADING_POOL, PROTECTED_VAULT]
+                amountUsd:
+                  type: number
+                  format: double
+                destinationAddress:
+                  type: string
+      responses:
+        '201':
+          description: Withdrawal requested
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WithdrawalDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    get:
+      tags: [Withdrawals]
+      summary: List the current user's withdrawals
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Withdrawals
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WithdrawalDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Settings
+  # --------------------------------------------------------------------
+  /api/v1/settings:
+    get:
+      tags: [Settings]
+      summary: Get the current user's trading settings
+      responses:
+        '200':
+          description: User settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSettingsDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Settings]
+      summary: Update the current user's trading settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                riskPct:
+                  type: number
+                maxDailyLossUsd:
+                  type: number
+                maxTradeSizeUsd:
+                  type: number
+                aiAggressiveness:
+                  type: string
+                  enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+                autoCompound:
+                  type: boolean
+                tradingScheduleMode:
+                  type: string
+                  enum: [ALWAYS_ON, MARKET_HOURS, CUSTOM]
+                tradingScheduleCron:
+                  type: string
+                vaultAllocationPct:
+                  type: number
+                tradingPoolAllocationPct:
+                  type: number
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSettingsDto'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/settings/notifications:
+    get:
+      tags: [Settings]
+      summary: Get notification preferences
+      responses:
+        '200':
+          description: Notification preferences
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationPreferenceDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Settings]
+      summary: Update notification preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preferences:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NotificationPreferenceDto'
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationPreferenceDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Bot
+  # --------------------------------------------------------------------
+  /api/v1/bot/enable:
+    post:
+      tags: [Bot]
+      summary: Enable the AI trading bot for the current user
+      responses:
+        '200':
+          description: Bot enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessEmpty'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Trading engine is globally disabled (TRADING_ENGINE_ENABLED=false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/bot/disable:
+    post:
+      tags: [Bot]
+      summary: Disable the AI trading bot for the current user
+      responses:
+        '200':
+          description: Bot disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessEmpty'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bot/status:
+    get:
+      tags: [Bot]
+      summary: Get current bot enablement + last-run status
+      responses:
+        '200':
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          enabled:
+                            type: boolean
+                          lastRunAt:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          nextRunAt:
+                            type: string
+                            format: date-time
+                            nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/bot/runs:
+    get:
+      tags: [Bot]
+      summary: List past trading-cycle runs (BotRun audit trail)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Bot runs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BotRunDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # --------------------------------------------------------------------
+  # Admin
+  # --------------------------------------------------------------------
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List platform users (ADMIN/SUPPORT only)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/metrics:
+    get:
+      tags: [Admin]
+      summary: Platform-wide metrics snapshot (ADMIN only)
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessBase'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/positions:
+    get:
+      tags: [Admin]
+      summary: List positions across all users (ADMIN/SUPPORT only)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Positions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PositionDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/logs:
+    get:
+      tags: [Admin]
+      summary: Query the audit log (ADMIN only)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessBase'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/health:
+    get:
+      tags: [Admin]
+      summary: Detailed subsystem health (DB, Redis, trading engine, providers) (ADMIN only)
+      responses:
+        '200':
+          description: Subsystem health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessBase'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: declawd_access_token
+      description: >
+        httpOnly JWT access-token cookie set by /api/v1/auth/google/callback
+        and refreshed via /api/v1/auth/refresh. Short-lived (JWT_ACCESS_TTL);
+        a separate httpOnly refresh cookie (declawd_refresh_token,
+        JWT_REFRESH_TTL) is used only to mint new access tokens.
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Authenticated but not authorized for this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ValidationError:
+      description: Request failed zod schema validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+  schemas:
+    # ---------------- Envelope ----------------
+    ApiSuccessBase:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        meta:
+          type: object
+          additionalProperties: true
+      required: [success]
+
+    ApiSuccessEmpty:
+      allOf:
+        - $ref: '#/components/schemas/ApiSuccessBase'
+        - type: object
+          properties:
+            data:
+              type: object
+              nullable: true
+              example: null
+
+    ApiError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - CONFLICT
+                - RATE_LIMITED
+                - INSUFFICIENT_BALANCE
+                - WALLET_VERIFICATION_FAILED
+                - MARKET_NOT_ELIGIBLE
+                - TRADING_ENGINE_DISABLED
+                - PROVIDER_ERROR
+                - INTERNAL_ERROR
+            message:
+              type: string
+            details:
+              nullable: true
+          required: [code, message]
+      required: [success, error]
+
+    # ---------------- DTOs ----------------
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [USER, ADMIN, SUPPORT]
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, DELETED]
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    WalletDto:
+      type: object
+      properties:
+        id:
+          type: string
+        address:
+          type: string
+        chainId:
+          type: integer
+        provider:
+          type: string
+          enum: [METAMASK, COINBASE_WALLET, WALLET_CONNECT, RABBY, RAINBOW]
+        isPrimary:
+          type: boolean
+        verifiedAt:
+          type: string
+          format: date-time
+
+    MarketDto:
+      type: object
+      properties:
+        id:
+          type: string
+        providerId:
+          type: string
+          example: polymarket
+        providerMarketId:
+          type: string
+        question:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, CLOSED, RESOLVED, INVALID]
+        yesPrice:
+          type: number
+          nullable: true
+        noPrice:
+          type: number
+          nullable: true
+        liquidityUsd:
+          type: number
+          nullable: true
+        volume24hUsd:
+          type: number
+          nullable: true
+        spreadBps:
+          type: number
+          nullable: true
+        opensAt:
+          type: string
+          format: date-time
+          nullable: true
+        closesAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedOutcome:
+          type: string
+          enum: [YES, NO]
+          nullable: true
+        latestAiSignal:
+          type: object
+          nullable: true
+          properties:
+            estimatedProbability:
+              type: number
+            confidenceScore:
+              type: number
+            suggestedDirection:
+              type: string
+              enum: [YES, NO]
+              nullable: true
+            reasoning:
+              type: string
+
+    PositionDto:
+      type: object
+      properties:
+        id:
+          type: string
+        marketId:
+          type: string
+        direction:
+          type: string
+          enum: [YES, NO]
+        status:
+          type: string
+          enum: [PENDING, OPEN, CLOSING, SETTLED, CANCELLED, FAILED]
+        entryPrice:
+          type: number
+        sizeUsd:
+          type: number
+        exitPrice:
+          type: number
+          nullable: true
+        feesUsd:
+          type: number
+        realizedPnlUsd:
+          type: number
+          nullable: true
+        confidenceScore:
+          type: number
+          nullable: true
+        reasoning:
+          type: string
+          nullable: true
+        openedAt:
+          type: string
+          format: date-time
+
+    TradeDto:
+      type: object
+      properties:
+        id:
+          type: string
+        positionId:
+          type: string
+        direction:
+          type: string
+          enum: [YES, NO]
+        side:
+          type: string
+          enum: [OPEN, CLOSE]
+        price:
+          type: number
+        sizeUsd:
+          type: number
+        feesUsd:
+          type: number
+        pnlUsd:
+          type: number
+          nullable: true
+        txHash:
+          type: string
+          nullable: true
+        signerAddress:
+          type: string
+        executedAt:
+          type: string
+          format: date-time
+
+    LedgerAccountDto:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [TRADING_POOL, PROTECTED_VAULT]
+        balance:
+          type: number
+
+    DashboardSummaryDto:
+      type: object
+      properties:
+        tradingPoolBalanceUsd:
+          type: number
+        protectedVaultBalanceUsd:
+          type: number
+        totalBalanceUsd:
+          type: number
+        openPositionsCount:
+          type: integer
+        realizedPnl24hUsd:
+          type: number
+        realizedPnlAllTimeUsd:
+          type: number
+        botEnabled:
+          type: boolean
+        lastBotRunAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UserSettingsDto:
+      type: object
+      properties:
+        botEnabled:
+          type: boolean
+        riskPct:
+          type: number
+        maxDailyLossUsd:
+          type: number
+        maxTradeSizeUsd:
+          type: number
+        aiAggressiveness:
+          type: string
+          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+        autoCompound:
+          type: boolean
+        tradingScheduleMode:
+          type: string
+          enum: [ALWAYS_ON, MARKET_HOURS, CUSTOM]
+        tradingScheduleCron:
+          type: string
+          nullable: true
+        vaultAllocationPct:
+          type: number
+          example: 70
+        tradingPoolAllocationPct:
+          type: number
+          example: 30
+
+    NotificationPreferenceDto:
+      type: object
+      properties:
+        channel:
+          type: string
+          enum: [EMAIL, TELEGRAM, DISCORD, BROWSER_PUSH]
+        event:
+          type: string
+          enum:
+            - TRADE_OPENED
+            - TRADE_CLOSED
+            - LARGE_PROFIT
+            - LARGE_LOSS
+            - BOT_STOPPED
+            - BOT_STARTED
+            - ERROR
+            - WITHDRAWAL_COMPLETED
+        enabled:
+          type: boolean
+        target:
+          type: string
+          nullable: true
+
+    WithdrawalDto:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceAccount:
+          type: string
+          enum: [TRADING_POOL, PROTECTED_VAULT]
+        amountUsd:
+          type: number
+        destinationAddress:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, SIGNED, SUBMITTED, CONFIRMED, FAILED]
+        txHash:
+          type: string
+          nullable: true
+        requestedAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    BotRunDto:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [RUNNING, COMPLETED, FAILED, SKIPPED]
+        marketsScanned:
+          type: integer
+        marketsEligible:
+          type: integer
+        tradesOpened:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true

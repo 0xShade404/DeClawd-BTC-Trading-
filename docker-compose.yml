@@ -1,0 +1,130 @@
+########################################################################
+# DeClawd - Docker Compose
+#
+# One-command production-ish deployment:
+#
+#   cp .env.example .env    # fill in real secrets first!
+#   docker compose up -d --build
+#
+# This brings up Postgres, Redis, the Fastify API, and the Next.js web
+# app. The `api` container runs `prisma migrate deploy` automatically on
+# every boot (see apps/api/Dockerfile ENTRYPOINT) so the database schema
+# is always up to date before the server starts listening - no manual
+# migration step is required for a fresh deployment.
+#
+# Manual steps still required after first boot:
+#   1. (optional) Seed reference data:
+#      docker compose exec api npm run prisma:seed --workspace=packages/database
+#   2. Fill in real GOOGLE_CLIENT_ID/SECRET, NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+#      and POLYMARKET_* credentials in .env before enabling the trading
+#      engine (TRADING_ENGINE_ENABLED=true) - see INSTALL.md.
+#
+# NOTE: docker compose automatically substitutes ${VAR} references below
+# from a `.env` file in this same directory (this is separate from the
+# `env_file:` directive used to inject the full env into containers).
+########################################################################
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: declawd
+      POSTGRES_PASSWORD: declawd
+      POSTGRES_DB: declawd
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U declawd -d declawd']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - declawd-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_data:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - declawd-network
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override host-local values from .env with in-network service names.
+      # .env is written for `npm run dev` on the host (localhost); inside
+      # the compose network the DB/cache live on their service names.
+      DATABASE_URL: postgresql://declawd:declawd@postgres:5432/declawd?schema=public
+      REDIS_URL: redis://redis:6379
+      API_HOST: 0.0.0.0
+    ports:
+      - '4000:4000'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - declawd-network
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      # NEXT_PUBLIC_* vars are inlined into the client bundle at *build*
+      # time by Next.js, so they must be passed as build args (sourced
+      # from the root .env via compose variable substitution) in addition
+      # to being present in the container's runtime environment below.
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
+        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:-}
+        NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-production}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - '3000:3000'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - declawd-network
+
+networks:
+  declawd-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
