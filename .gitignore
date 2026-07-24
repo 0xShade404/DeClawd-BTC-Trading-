@@ -12,6 +12,7 @@ coverage/
 *.tsbuildinfo
 .turbo/
 prisma/generated/
+packages/database/src/generated/
 .vercel/
 playwright-report/
 test-results/

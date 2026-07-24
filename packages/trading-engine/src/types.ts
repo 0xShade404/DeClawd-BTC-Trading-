@@ -1,3 +1,4 @@
+export type { TradeDirection } from '@declawd/shared';
 import type { TradeDirection } from '@declawd/shared';
 
 /**
@@ -109,7 +110,7 @@ export class ProviderError extends Error {
   constructor(
     public readonly providerId: string,
     message: string,
-    public readonly cause?: unknown,
+    public override readonly cause?: unknown,
   ) {
     super(`[${providerId}] ${message}`);
     this.name = 'ProviderError';

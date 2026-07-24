@@ -77,7 +77,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Configure how the AI agent trades and how you're notified.
+          Configure how the AI agent trades and how you&apos;re notified.
         </p>
       </div>
 

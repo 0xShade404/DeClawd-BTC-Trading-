@@ -1,4 +1,4 @@
-import type { NotificationEvent, PrismaClient } from '@declawd/database';
+import type { NotificationEvent, Prisma, PrismaClient } from '@declawd/database';
 import {
   NOTIFICATION_LARGE_LOSS_THRESHOLD_USD,
   NOTIFICATION_LARGE_PROFIT_THRESHOLD_USD,
@@ -73,7 +73,7 @@ export class NotificationService {
               userId: params.userId,
               channel: pref.channel,
               event: params.event,
-              payload: { title: params.title, message: params.message, metadata: params.metadata ?? {} },
+              payload: { title: params.title, message: params.message, metadata: params.metadata ?? {} } as Prisma.InputJsonValue,
               sentAt: new Date(),
             },
           });
@@ -84,7 +84,7 @@ export class NotificationService {
               userId: params.userId,
               channel: pref.channel,
               event: params.event,
-              payload: { title: params.title, message: params.message, metadata: params.metadata ?? {} },
+              payload: { title: params.title, message: params.message, metadata: params.metadata ?? {} } as Prisma.InputJsonValue,
               error: String(err),
             },
           });

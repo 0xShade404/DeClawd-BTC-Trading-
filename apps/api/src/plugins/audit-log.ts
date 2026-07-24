@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import type { AuditActorType, PrismaClient } from '@declawd/database';
+import type { AuditActorType, Prisma, PrismaClient } from '@declawd/database';
 
 export interface AuditLogParams {
   actorType: AuditActorType;
@@ -27,7 +27,7 @@ export async function writeAuditLog(prisma: PrismaClient, params: AuditLogParams
         action: params.action,
         entityType: params.entityType,
         entityId: params.entityId,
-        metadata: params.metadata as never,
+        metadata: params.metadata as Prisma.InputJsonValue | undefined,
         ipAddress: params.request?.ip,
         userAgent: params.request?.headers['user-agent'],
       },

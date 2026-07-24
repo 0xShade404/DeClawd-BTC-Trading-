@@ -22,7 +22,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get(
     '/auth/google',
     { config: { rateLimit: AUTH_RATE_LIMIT } },
-    async (request, reply) => {
+    async (_request, reply) => {
       const state = randomBytes(16).toString('hex');
       reply.setCookie(OAUTH_STATE_COOKIE, state, {
         httpOnly: true,

@@ -30,7 +30,7 @@ export default function HistoryPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Trade history</h1>
           <p className="text-sm text-muted-foreground">
-            Every trade DeClawd has executed on your behalf, with the AI's confidence and reasoning.
+            Every trade DeClawd has executed on your behalf, with the AI&apos;s confidence and reasoning.
           </p>
         </div>
         <Select

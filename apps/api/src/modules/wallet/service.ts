@@ -1,7 +1,6 @@
 import { verifyMessage } from 'viem';
 import type { PrismaClient, Wallet } from '@declawd/database';
-import type { WalletDto } from '@declawd/shared';
-import type { LinkWalletInput } from '@declawd/shared';
+import type { LinkWalletInput, WalletDto } from '@declawd/shared';
 import { env } from '../../config/env';
 import { generateNonce, buildWalletLinkMessage } from '../../lib/siwe-message';
 import { getNonce, setNonce, deleteNonce } from '../../lib/nonce-store';

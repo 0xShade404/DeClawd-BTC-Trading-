@@ -1,4 +1,4 @@
-import type { AuditLog, PrismaClient } from '@declawd/database';
+import type { AuditLog, Prisma, PrismaClient } from '@declawd/database';
 import type { AdminPlatformMetricsDto, PaginatedResult, PositionDto, UserDto } from '@declawd/shared';
 import { paginationSkipTake, toPaginatedResult } from '../../lib/pagination';
 import { toUserDto } from '../auth/service';
@@ -52,10 +52,10 @@ export async function listAllPositions(
   prisma: PrismaClient,
   params: { page: number; pageSize: number; status?: 'open' | 'closed' },
 ): Promise<PaginatedResult<AdminPositionDto>> {
-  const OPEN = ['PENDING', 'OPEN', 'CLOSING'] as const;
-  const CLOSED = ['SETTLED', 'CANCELLED', 'FAILED'] as const;
+  const OPEN: Prisma.PositionWhereInput['status'] = { in: ['PENDING', 'OPEN', 'CLOSING'] };
+  const CLOSED: Prisma.PositionWhereInput['status'] = { in: ['SETTLED', 'CANCELLED', 'FAILED'] };
   const statusFilter = params.status === 'open' ? OPEN : params.status === 'closed' ? CLOSED : undefined;
-  const where = statusFilter ? { status: { in: statusFilter } } : {};
+  const where: Prisma.PositionWhereInput = statusFilter ? { status: statusFilter } : {};
 
   const [positions, total] = await Promise.all([
     prisma.position.findMany({

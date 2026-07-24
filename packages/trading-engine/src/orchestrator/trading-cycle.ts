@@ -39,7 +39,7 @@ export class TradingCycle {
   }
 
   async run(): Promise<{ eligibleMarkets: number; tradesOpened: number }> {
-    const { prisma, provider, featureBuilder, aiService, logger } = this.deps;
+    const { prisma, logger } = this.deps;
 
     const enabledUsers = await prisma.userSettings.findMany({
       where: { botEnabled: true },
@@ -78,9 +78,6 @@ export class TradingCycle {
         });
       }
     }
-
-    // Record which markets were scanned/eligible against the last bot run for audit purposes.
-    void provider;
 
     return { eligibleMarkets: eligible.length, tradesOpened: totalTradesOpened };
   }

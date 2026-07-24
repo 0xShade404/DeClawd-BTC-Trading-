@@ -6,16 +6,17 @@
 #
 #   docker build -f apps/api/Dockerfile -t declawd-api .
 #
-# ASSUMPTIONS (apps/api is being scaffolded by a parallel agent and did
-# not yet have a package.json or src/server.ts at the time this file was
-# written):
-#   - apps/api/package.json defines a "build" script producing apps/api/dist
-#     (rootDir "src" / outDir "dist" per apps/api/tsconfig.json, already
-#     present in the repo) and a compiled entrypoint at apps/api/dist/server.js.
-#   - The root `npm run build` script order (packages/shared -> database ->
-#     trading-engine -> apps/api) is respected here explicitly.
-# If the real entrypoint differs (e.g. dist/index.js, dist/main.js), update
-# the CMD path at the bottom of the runner stage accordingly.
+# NOTE on the runtime entrypoint: packages/shared, packages/database, and
+# packages/trading-engine all declare "main"/"types" as "./src/index.ts"
+# (consumed as TypeScript source directly, not a compiled "dist" output -
+# see each package.json). That means a plain `node apps/api/dist/server.js`
+# would fail at runtime: requiring `@declawd/shared` etc. would try to
+# `require()` a .ts file, which plain Node cannot parse. `npm run build`
+# (tsc) is still run below for typecheck/declaration-file purposes, but the
+# actual process is started with `tsx`, which transpiles TypeScript
+# on-the-fly for the entrypoint AND everything it transitively requires
+# (including those workspace packages' source) - see apps/api/package.json's
+# "start" script.
 ########################################################################
 
 # ---------- deps: install workspace dependencies ----------
@@ -74,11 +75,10 @@ EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
   CMD wget -qO- http://localhost:4000/health || exit 1
 
-# Run pending Prisma migrations, then start the server. This is what
-# makes `docker compose up -d --build` a genuine one-command deployment -
-# no separate `docker compose exec api npx prisma migrate deploy` step is
+# Run pending Prisma migrations, then start the server via the "start"
+# script (`tsx src/server.ts` - see NOTE at the top of this file for why
+# plain `node dist/server.js` isn't used). This is what makes
+# `docker compose up -d --build` a genuine one-command deployment - no
+# separate `docker compose exec api npx prisma migrate deploy` step is
 # required on a fresh environment.
-#
-# ASSUMPTION: compiled entrypoint is apps/api/dist/server.js - adjust if
-# apps/api's actual build output differs.
-ENTRYPOINT ["/bin/sh", "-c", "npm run prisma:migrate:deploy --workspace=packages/database && node apps/api/dist/server.js"]
+ENTRYPOINT ["/bin/sh", "-c", "npm run prisma:migrate:deploy --workspace=packages/database && npm run start --workspace=apps/api"]
